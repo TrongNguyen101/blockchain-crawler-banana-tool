@@ -1,0 +1,24 @@
+{
+  "name": "blockchain-crawler-banana-tool",
+  "version": "1.0.0",
+  "description": "Banana crawler",
+  "main": "index.js",
+  "scripts": {
+    "test": "test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://TrongNguyen101@github.com/TrongNguyen101/blockchain-crawler-banana-tool.git"
+  },
+  "author": "chris",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/TrongNguyen101/blockchain-crawler-banana-tool/issues"
+  },
+  "homepage": "https://github.com/TrongNguyen101/blockchain-crawler-banana-tool#readme",
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "ethers": "^5.8",
+    "express": "^4.21.2"
+  }
+}
