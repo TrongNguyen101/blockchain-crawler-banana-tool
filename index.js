@@ -1,12 +1,21 @@
 require("dotenv").config();
 const express = require("express");
+const mongoose = require("mongoose");
 const { ethers } = require("ethers");
+const Transaction = require("./transaction");
+const { axios } = require("axios");
 const app = express();
 const port = 3000;
 
+mongoose
+  .connect(process.env.MONGO_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  })
+  .then(() => console.log("MongoDB Connected"))
+  .catch((err) => console.error("MongoDB Connection Error:", err));
 const provider = new ethers.providers.JsonRpcProvider(process.env.INFURA_URL);
 
-// tool lỏ mù mắt
 app.get("/", async (req, res) => {
   res.send("Banana crawler app");
 });
@@ -55,12 +64,12 @@ app.get("/transaction/:address", async (req, res) => {
 
     for (let i = latestBlock; i > latestBlock - 10; i--) {
       const block = await provider.getBlockWithTransactions(i);
-      block.transactions.forEach((tx) => {
+      for (let tx of block.transactions) {
         if (
           tx.from.toLowerCase() === address ||
           (tx.to && tx.to.toLowerCase() === address)
         ) {
-          transactions.push({
+          const txData = {
             hash: tx.hash,
             from: tx.from,
             to: tx.to,
@@ -68,10 +77,26 @@ app.get("/transaction/:address", async (req, res) => {
             gasPrice: tx.gasPrice.toString(),
             gasLimit: tx.gasLimit.toString(),
             blockNumber: tx.blockNumber,
+          };
+          await Transaction.findOneAndUpdate({ hash: tx.hash }, txData, {
+            upsert: true,
           });
+
+          transactions.push(txData);
         }
-      });
+      }
     }
+    res.json({ success: true, transaction: transactions });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.get("/transaction/stored/:address", async (req, res) => {
+  try {
+    const transactions = await Transaction.find({
+      $or: [{ from: req.params.address }, { to: req.params.address }],
+    }).sort({ blockNumber: -1 });
     res.json({ success: true, transaction: transactions });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -88,6 +113,19 @@ app.get("/balance/:address", async (req, res) => {
     const balanceETH = ethers.utils.formatEther(balanceWei);
 
     res.json({ success: true, address: address, balance: balanceETH });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.get("/block/:block", async (req, res) => {
+  try {
+    const block = req.params.block;
+    const blockData = await axios.get(
+      `https://eth.blockscout.com/api/v2/blocks?type=${block}`
+    );
+
+    res.json({ success: true, block: blockData.data });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
