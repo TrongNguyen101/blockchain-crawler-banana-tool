@@ -3,6 +3,7 @@ const express = require("express");
 const mongoose = require("mongoose");
 const { ethers } = require("ethers");
 const Transaction = require("./transaction");
+const Block = require("./blockSchema");
 const { axios } = require("axios");
 const app = express();
 const port = 3000;
@@ -16,13 +17,26 @@ mongoose
   .catch((err) => console.error("MongoDB Connection Error:", err));
 const provider = new ethers.providers.JsonRpcProvider(process.env.INFURA_URL);
 
-app.get("/", async (req, res) => {
-  res.send("Banana crawler app");
-});
-
 app.get("/block/latest", async (req, res) => {
   try {
     const blockNumber = await provider.getBlock("latest");
+    const blockIsExist = await Block.findOne({ blockNumber: blockNumber.number });
+
+    if (blockIsExist) {
+      return res.json({ success: true, latestBlock: blockIsExist });
+    }
+    const blockData = new Block({
+      blockNumber: blockNumber.number,
+      hash: blockNumber.hash,
+      miner: blockNumber.miner,
+      gasUsed: blockNumber.gasUsed.toString(),
+      gasLimit: blockNumber.gasLimit.toString(),
+      timestamp: new Date(blockNumber.timestamp * 1000),
+      transactions: blockNumber.transactions.map((tx) => tx.hash),
+    });
+
+    await blockData.save();
+
     res.json({ success: true, latestBlock: blockNumber });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -32,6 +46,12 @@ app.get("/block/latest", async (req, res) => {
 app.get("/block/:blockNumber", async (req, res) => {
   try {
     let blockNumber = req.params.blockNumber;
+
+    const isBlockExist = await Block.findOne({ blockNumber: blockNumber });
+    
+    if (isBlockExist) {
+      return res.json({ success: true, block: isBlockExist });
+    }
 
     if (isNaN(blockNumber)) {
       return res
@@ -49,6 +69,18 @@ app.get("/block/:blockNumber", async (req, res) => {
     if (!block) {
       return res.status(404).json({ success: false, error: "Block not found" });
     }
+
+    const blockData = new Block({ 
+      blockNumber: block.number,
+      hash: block.hash,
+      miner: block.miner,
+      gasUsed: block.gasUsed.toString(),
+      gasLimit: block.gasLimit.toString(),
+      timestamp: new Date(block.timestamp * 1000),
+      transactions: block.transactions.map((tx) => tx.hash),
+    });
+
+    await blockData.save();
 
     res.json({ success: true, block });
   } catch (error) {
