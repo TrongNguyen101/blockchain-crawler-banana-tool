@@ -47,25 +47,32 @@ app.get("/block/:blockNumber", async (req, res) => {
   }
 });
 
-app.get("/transaction/:txhash", async (req, res) => {
+app.get("/transaction/:address", async (req, res) => {
   try {
-    const txHash = req.params.txhash;
-    if (!/^0x([A-Fa-f0-9]{64})$/.test(txHash)) {
-      return res
-        .status(400)
-        .json({ success: false, error: "Invalid transaction hash" });
-    }
+    const address = req.params.address.toLowerCase();
+    const latestBlock = await provider.getBlockNumber();
+    const transactions = [];
 
-    const transaction = await provider.send("eth_getTransactionByHash", [
-      txHash,
-    ]);
-
-    if (!transaction) {
-      return res
-        .status(404)
-        .json({ success: false, error: "Transaction not found" });
+    for (let i = latestBlock; i > latestBlock - 10; i--) {
+      const block = await provider.getBlockWithTransactions(i);
+      block.transactions.forEach((tx) => {
+        if (
+          tx.from.toLowerCase() === address ||
+          (tx.to && tx.to.toLowerCase() === address)
+        ) {
+          transactions.push({
+            hash: tx.hash,
+            from: tx.from,
+            to: tx.to,
+            value: tx.value.toString(),
+            gasPrice: tx.gasPrice.toString(),
+            gasLimit: tx.gasLimit.toString(),
+            blockNumber: tx.blockNumber,
+          });
+        }
+      });
     }
-    res.json({ success: true, transaction });
+    res.json({ success: true, transaction: transactions });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
