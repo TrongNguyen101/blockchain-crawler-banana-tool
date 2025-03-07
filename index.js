@@ -15,12 +15,16 @@ mongoose
   })
   .then(() => console.log("MongoDB Connected"))
   .catch((err) => console.error("MongoDB Connection Error:", err));
+
 const provider = new ethers.providers.JsonRpcProvider(process.env.INFURA_URL);
+const walletAddress = process.env.WALLET_ADDRESS;
 
 app.get("/block/latest", async (req, res) => {
   try {
     const blockNumber = await provider.getBlock("latest");
-    const blockIsExist = await Block.findOne({ blockNumber: blockNumber.number });
+    const blockIsExist = await Block.findOne({
+      blockNumber: blockNumber.number,
+    });
 
     if (blockIsExist) {
       return res.json({ success: true, latestBlock: blockIsExist });
@@ -48,7 +52,7 @@ app.get("/block/:blockNumber", async (req, res) => {
     let blockNumber = req.params.blockNumber;
 
     const isBlockExist = await Block.findOne({ blockNumber: blockNumber });
-    
+
     if (isBlockExist) {
       return res.json({ success: true, block: isBlockExist });
     }
@@ -70,7 +74,7 @@ app.get("/block/:blockNumber", async (req, res) => {
       return res.status(404).json({ success: false, error: "Block not found" });
     }
 
-    const blockData = new Block({ 
+    const blockData = new Block({
       blockNumber: block.number,
       hash: block.hash,
       miner: block.miner,
@@ -138,9 +142,10 @@ app.get("/transaction/stored/:address", async (req, res) => {
 app.get("/balance/:address", async (req, res) => {
   try {
     const address = req.params.address;
-    if (ethers.utils.isAddress(address) === false) {
+    if (!ethers.utils.isAddress(address)) {
       return res.status(400).json({ success: false, error: "Invalid address" });
     }
+
     const balanceWei = await provider.getBalance(address);
     const balanceETH = ethers.utils.formatEther(balanceWei);
 
@@ -158,6 +163,30 @@ app.get("/block/:block", async (req, res) => {
     );
 
     res.json({ success: true, block: blockData.data });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.get("/balance/tracker", async (req, res) => {
+  try {
+    const balance = await provider.getBalance(walletAddress);
+    res.json({
+      success: true,
+      address: walletAddress,
+      balance: ethers.utils.formatEther(balance),
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.get("/etherscan/:address", async (req, res) => {
+  try {
+    const address = req.params.address;
+    const url = `https://api.etherscan.io/api?module=account&action=balance&address=${address}&tag=latest&apikey=${process.env.ETHERSCAN_API_KEY}`;
+    const result = await axios.get(url);
+    res.json({ success: true, address: address, balance: result.data });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
