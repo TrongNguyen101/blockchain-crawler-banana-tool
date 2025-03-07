@@ -5,6 +5,7 @@ const { ethers } = require("ethers");
 const Transaction = require("./transaction");
 const Block = require("./blockSchema");
 const { axios } = require("axios");
+const { Web3 } = require("web3");
 const app = express();
 const port = 3000;
 
@@ -18,6 +19,9 @@ mongoose
 
 const provider = new ethers.providers.JsonRpcProvider(process.env.INFURA_URL);
 const walletAddress = process.env.WALLET_ADDRESS;
+
+const RPC_URL = "https://808813.rpc.thirdweb.com";
+const web3 = new Web3(RPC_URL);
 
 app.get("/block/latest", async (req, res) => {
   try {
@@ -181,14 +185,14 @@ app.get("/balance/tracker", async (req, res) => {
   }
 });
 
-app.get("/etherscan/:address", async (req, res) => {
+app.get("/sepolia/balance", async (req, res) => {
   try {
-    const address = req.params.address;
-    const url = `https://api.etherscan.io/api?module=account&action=balance&address=${address}&tag=latest&apikey=${process.env.ETHERSCAN_API_KEY}`;
-    const result = await axios.get(url);
-    res.json({ success: true, address: address, balance: result.data });
+    const balance = await web3.eth.getBalance(WALLET_ADDRESS);
+    res.json({
+      balance: web3.utils.fromWei(balance, "ether") + " ETH (testnet)",
+    });
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
+    res.tatus(500).json({ success: false, error: error.message });
   }
 });
 
